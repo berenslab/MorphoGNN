@@ -1,13 +1,14 @@
 import torch
 import torch.nn as nn
-import torch.nn.init as init
 import tqdm
 import numpy as np
 from dataset import DataSet
 import torch.optim as optim
 import sklearn.metrics as metrics
-from torch.optim.lr_scheduler import CosineAnnealingLR, StepLR
+from torch.optim.lr_scheduler import StepLR
 import torch.nn.functional as F
+
+DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
 def knn(x, k):
@@ -23,11 +24,11 @@ def get_graph_feature(x, k=20, idx=None, dim9=False):
     num_points = x.size(2)
     x = x.view(batch_size, -1, num_points)
     if idx is None:
-        if dim9 == False:
+        if not dim9:
             idx = knn(x, k=k)
         else:
             idx = knn(x[:, 6:], k=k)
-    device = torch.device('cuda')
+    device = x.device
 
     idx_base = torch.arange(0, batch_size, device=device).view(-1, 1, 1) * num_points
 
@@ -122,7 +123,7 @@ def euclidean_dist(x, y):
     xx = torch.pow(x, 2).sum(1, keepdim=True).expand(m, n)
     yy = torch.pow(y, 2).sum(dim=1, keepdim=True).expand(n, m).t()
     dist = xx + yy
-    dist.addmm_(1, -2, x, y.t())
+    dist.addmm_(x, y.t(), beta=1, alpha=-2)
     dist = dist.clamp(min=1e-12).sqrt()
     return dist
 
@@ -146,7 +147,7 @@ def _batch_hard(mat_distance, mat_similarity, indice=False):
                                                        descending=False)
     hard_n = sorted_mat_distance[:, 0]
     hard_n_indice = negative_indices[:, 0]
-    if (indice):
+    if indice:
         return hard_p, hard_n, hard_p_indice, hard_n_indice
     return hard_p, hard_n
 
@@ -183,7 +184,7 @@ if __name__ == '__main__':
                                                drop_last=True)
     test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=4, shuffle=False, num_workers=2,
                                               drop_last=True)
-    model = MorphoGNN().to('cuda')
+    model = MorphoGNN().to(DEVICE)
     opt = optim.Adam(model.parameters(), lr=0.001, weight_decay=1e-4)
     scheduler = StepLR(opt, step_size=20, gamma=0.5)
     criterion_CrossEntropy = nn.CrossEntropyLoss()
@@ -203,7 +204,7 @@ if __name__ == '__main__':
         for data, label in tqdm_batch:
             data = data.type(torch.FloatTensor)
             label = label.type(torch.LongTensor)
-            data, label = data.to('cuda'), label.to('cuda').squeeze()
+            data, label = data.to(DEVICE), label.to(DEVICE).squeeze()
             data = data.permute(0, 2, 1)
             batch_size = data.size()[0]
             opt.zero_grad()
@@ -247,7 +248,7 @@ if __name__ == '__main__':
             for data, label in tqdm_batch:
                 data = data.type(torch.FloatTensor)
                 label = label.type(torch.LongTensor)
-                data, label = data.to('cuda'), label.to('cuda').squeeze()
+                data, label = data.to(DEVICE), label.to(DEVICE).squeeze()
                 data = data.permute(0, 2, 1)
                 batch_size = data.size()[0]
                 features, logits = model(data)

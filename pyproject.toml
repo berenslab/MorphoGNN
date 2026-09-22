@@ -1,0 +1,45 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "morphognn"
+version = "0.1.0"
+description = "Morphological embedding of single neurons with graph neural networks"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+classifiers = [
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+]
+dependencies = [
+    "h5py>=3.8",
+    "matplotlib>=3.5",
+    # The morphometrics use NeuroM's pre-3.0 API (`load_neuron`, and feature names
+    # such as `n_sections` / `n_segments` / `neurite_lengths`). NeuroM 3 renamed the
+    # loader and dropped those feature names, so keep this on the 2.x line unless
+    # morphometrics.py is ported.
+    "neurom>=2.2,<3",
+    "numpy>=1.23",
+    "scikit-learn>=1.1",
+    "torch>=2.0",
+    "tqdm>=4.60",
+]
+
+[project.urls]
+Homepage = "https://github.com/sfwmusi/MorphoGNN_reconcls"
+
+# The scripts are meant to be run from the repo root (`python MorphoGNN.py`), so they
+# live as top-level modules rather than inside a package. Listed explicitly here so the
+# wheel ships exactly these files and nothing else from the repo root.
+[tool.hatch.build.targets.wheel]
+only-include = [
+    "MorphoGNN.py",
+    "SWC2H5PY.py",
+    "dataset.py",
+    "morphometrics.py",
+    "retrieval.py",
+]
+sources = ["."]

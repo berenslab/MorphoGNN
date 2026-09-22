@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.ipynb_checkpoints/
+
+# Environments
+.venv/
+venv/
+
+# Generated datasets, feature databases and checkpoints
+*.h5
+*.npy
+*.t7
+
+# Raw morphology data (see README)
+/neuron7/
+
+# OS
+.DS_Store
+Thumbs.db

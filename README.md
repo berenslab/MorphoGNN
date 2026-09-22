@@ -1,37 +1,102 @@
-# MorphEmbedding
-Morphological embedding for single neuron with graph neuron networks.
+# MorphoGNN
+
+Morphological embedding of single neurons with graph neural networks.
+
+## Installation
+
+The project is managed with [uv](https://docs.astral.sh/uv/):
+
+```bash
+uv sync
+```
+
+That creates a `.venv` with all dependencies (PyTorch, NeuroM, h5py, scikit-learn, ...).
+Either prefix the commands below with `uv run`, or activate the environment first.
+
+Training, feature extraction and retrieval use CUDA when it is available and fall back
+to CPU otherwise.
+
+## Expected data layout
+
+All scripts read a directory holding one sub-directory per class, each containing the
+`.swc` files of that class. Directory names are the class labels and must be the seven
+keys of `LABEL7` in [SWC2H5PY.py](SWC2H5PY.py):
+
+```
+neuron7/
+├── amacrine/    *.swc
+├── aspiny/      *.swc
+├── basket/      *.swc
+├── bipolar/     *.swc
+├── pyramidal/   *.swc
+├── spiny/       *.swc
+└── stellate/    *.swc
+```
+
 ## Data preprocessing
-Make sure that the morphology data is composed of ''.swc'' files, each of which contains the morphological structure of a single neuron. Activate your python environment and using:
-```python
+
+```bash
 python SWC2H5PY.py --swc_dir=./neuron7
 ```
-to generate trainable corresponding point cloud datasets. ''--swc_dir'' is the path where you store the morphological data. Then you will see two ''.h5'' files in your current directory, the training set and the test set.
+
+`--swc_dir` is the path where the morphology data is stored. Each neuron is read as a
+point cloud of 6000 points (shorter ones are zero-padded), and the neurons are shuffled
+and split 70/30 into `TrainDatasets_6000.h5` and `TestDatasets_6000.h5` in the current
+directory.
+
 ## Train MorphoGNN
-When the trainable data is generated, run:
-```python
+
+Once the trainable data is generated, run:
+
+```bash
 python MorphoGNN.py
 ```
-to train the MorphoGNN model. After running 50 epoches, the model file named ''MorphoGNN.t7'' appears in the current directory.
+
+to train the MorphoGNN model for 50 epochs. The checkpoint with the best test accuracy
+is written to `MorphoGNN.t7` in the current directory.
+
 ## Retrieval
-''retrieval.py'' helps you retrieve nerve fibers based on the MorphoGNN model you trained. Firstly, you should run:
-```python
+
+[retrieval.py](retrieval.py) retrieves nerve fibers with a trained MorphoGNN model.
+First build the feature library, saved as `database.npy`:
+
+```bash
 python retrieval.py --task=ExtractFeature --model_path=./MorphoGNN.t7 --swc_dir=./neuron7
 ```
-to build a feature library for each neuron, which is saved as ''.npy'' file. Then 
-```python
-python retrieval.py --task=QueryTest --query_times=100
+
+Then query it for the ten most similar neurons (by cosine similarity) and plot them next
+to the query:
+
+```bash
+python retrieval.py --task=QueryTest --swc_dir=./neuron7
 ```
-to retrieve the most similar neurons in this library ''100'' times. Or you can using this command:
-```python
+
+Note that `QueryTest` currently queries one hard-coded neuron, so the `--query_times`
+flag has no effect. `QueryTests()` loops over the whole database, but is not wired to
+the command line.
+
+To visualize the feature distribution with t-SNE:
+
+```bash
 python retrieval.py --task=Visualize
 ```
-to visulize features distribution.
+
 ## Morphometrics
-We also provide an example of classifying neurons using sixteen traditional morphometrics in ''morphometrics.py''. Morphometrics are captured through [NeuroM](https://github.com/BlueBrain/NeuroM). Run:
-```python
+
+[morphometrics.py](morphometrics.py) is an example of classifying neurons with sixteen
+traditional morphometrics, captured through [NeuroM](https://github.com/BlueBrain/NeuroM).
+Run:
+
+```bash
 python morphometrics.py --swc_dir=./neuron7
 ```
-to genrate datasets with traditional morphometrics and train a simple multilayer perceptron to classify.
-## Reconstruction Quality Classification
-https://github.com/sfwmusi/MorphoGNN_reconcls
 
+to generate datasets of traditional morphometrics and train a simple multilayer
+perceptron to classify them.
+
+This uses NeuroM's pre-3.0 API, so `pyproject.toml` pins `neurom<3`; NeuroM 3 renamed the
+loader and dropped several of the feature names used here.
+
+## Reconstruction Quality Classification
+
+https://github.com/sfwmusi/MorphoGNN_reconcls

@@ -1,21 +1,23 @@
-import neurom as nm
-import numpy as np
-import logging
-import time
-import h5py
 import argparse
-from MorphoGNN import *
-
 import math
 import os
 
-def WriteH5py(dir,data,label):
-    f = h5py.File(dir,'w')
-    f['data'] = data
-    f['label'] = label
+import neurom as nm
+import numpy as np
+import sklearn.metrics as metrics
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import torch.optim as optim
+import tqdm
+from torch.optim.lr_scheduler import StepLR
+from torch.utils.data import DataLoader
 
-def     ReturnFeatures(neuron):
-    features = []
+from dataset import DataSet
+from MorphoGNN import DEVICE
+from SWC2H5PY import LABEL7, WriteH5py
+
+def ReturnFeatures(neuron):
     features = []
     features.append(nm.get('n_sections', neuron))
     features.append(nm.get('n_leaves', neuron))
@@ -38,32 +40,32 @@ def     ReturnFeatures(neuron):
     return features
 
 def GenerateH5py(dir_list):
-    label7 = {'amacrine': 0, 'aspiny': 1, 'basket': 2, 'bipolar': 3, 'pyramidal': 4, 'spiny': 5, 'stellate': 6}
-    i = 0
+    '''Morphometrics for every .swc in one class directory. (None,None) if it holds none.'''
+    chunks = []
     for filename in os.listdir(dir_list):
         if filename.split('.')[-1] != 'swc': continue
-        print(dir_list.split('/')[-1], '/', filename, ' ', i)
-        if i == 0:
-            datas = ReturnFeatures(nm.load_neuron(dir_list+'/'+filename))
-            i = i + 1
+        print(dir_list.split('/')[-1], '/', filename, ' ', len(chunks))
+        try:
+            chunks.append(ReturnFeatures(nm.load_neuron(dir_list+'/'+filename)))
+        except Exception:
             continue
-        try:data = ReturnFeatures(nm.load_neuron(dir_list+'/'+filename))
-        except:
-            continue
-        datas = np.concatenate((datas, data))
-        i = i + 1
-    datas = np.array(datas)
-    labels = np.ones((datas.shape[0], 1)) * int(label7[dir_list.split('/')[-1]])
+    if not chunks:
+        return None, None
+    datas = np.concatenate(chunks)
+    labels = np.ones((datas.shape[0], 1)) * int(LABEL7[dir_list.split('/')[-1]])
     return datas, labels
 
 def GenerateMorphDataset(neuron_list,proportion):
-    for i, neuron_type in enumerate(os.listdir(neuron_list)):
-        if i == 0:
-            datas, labels = GenerateH5py(neuron_list + '/' + neuron_type)
-            continue
+    data_chunks = []
+    label_chunks = []
+    for neuron_type in os.listdir(neuron_list):
         data, label = GenerateH5py(neuron_list + '/' + neuron_type)
-        datas = np.concatenate((datas, data))
-        labels = np.concatenate((labels, label))
+        if data is None:
+            continue
+        data_chunks.append(data)
+        label_chunks.append(label)
+    datas = np.concatenate(data_chunks)
+    labels = np.concatenate(label_chunks)
     print(datas.shape, ' ', labels.shape)
     state = np.random.get_state()
     np.random.shuffle(datas)
@@ -98,11 +100,11 @@ class Mlp(nn.Module):
 def train():
     train_dataset = DataSet(train=True,train_dir='./MorphTrainDatasets.h5',norm=False)
     test_dataset = DataSet(train=False,test_dir='./MorphTestDatasets.h5',norm=False)
-    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=4, shuffle=True, num_workers=2,
-                                               drop_last=True)
-    test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=4, shuffle=False, num_workers=2,
-                                              drop_last=True)
-    model = Mlp().to('cuda')
+    train_loader = DataLoader(train_dataset, batch_size=4, shuffle=True, num_workers=2,
+                              drop_last=True)
+    test_loader = DataLoader(test_dataset, batch_size=4, shuffle=False, num_workers=2,
+                             drop_last=True)
+    model = Mlp().to(DEVICE)
     opt = optim.Adam(model.parameters(), lr=0.001, weight_decay=1e-4)
     scheduler = StepLR(opt, step_size=20, gamma=0.5)
     criterion_CrossEntropy = nn.CrossEntropyLoss()
@@ -118,7 +120,7 @@ def train():
         for data, label in tqdm_batch:
             data = data.type(torch.FloatTensor)
             label = label.type(torch.LongTensor)
-            data, label = data.to('cuda'), label.to('cuda').squeeze()
+            data, label = data.to(DEVICE), label.to(DEVICE).squeeze()
             batch_size = data.size()[0]
             opt.zero_grad()
             logits = model(data)
@@ -154,7 +156,7 @@ def train():
             for data, label in tqdm_batch:
                 data = data.type(torch.FloatTensor)
                 label = label.type(torch.LongTensor)
-                data, label = data.to('cuda'), label.to('cuda').squeeze()
+                data, label = data.to(DEVICE), label.to(DEVICE).squeeze()
                 batch_size = data.size()[0]
                 logits = model(data)
                 preds = logits.max(dim=1)[1]
@@ -184,7 +186,7 @@ def GenerateMorphDatabase(neuron_list):
                 feature = ReturnFeatures(nm.load_neuron(neuron_list+'/'+neuron_type+'/'+swc))
                 feature = feature[0,:]
                 print(feature.shape)
-            except: continue
+            except Exception: continue
             NeuronVectorDatabase[neuron_type + '/' + swc] = feature
     print(len(NeuronVectorDatabase))
     np.save('Morphometrics.npy', NeuronVectorDatabase)
@@ -200,8 +202,6 @@ def Replace(dir1,dir2):
                 line = line[:-3] + line[-2:]
             f2.write(line)
             flag = flag+1
-        f.close()
-        f2.close()
     os.remove(dir1)
     os.rename(dir2,dir1)
 
@@ -209,14 +209,13 @@ def GenerateMorphometricsAddMorphoGNNDatabase(mmDatabase,morphognnDatabase,propo
     '''train a mlp through morphometrics added with the features of MorphoGNN to classify'''
     mmdatabase = np.load(mmDatabase, allow_pickle=True).item()
     morphognndatabase = np.load(morphognnDatabase, allow_pickle=True).item()
-    label7 = {'amacrine': 0, 'aspiny': 1, 'basket': 2, 'bipolar': 3, 'pyramidal': 4, 'spiny': 5, 'stellate': 6}
     datas = []
     labels = []
     for neuron in mmdatabase.keys():
         print(neuron)
         datas.append(np.concatenate((mmdatabase[neuron], morphognndatabase[neuron])))
-        type = neuron[0:neuron.find('/')]
-        labels.append(label7[type])
+        neuron_type = neuron[0:neuron.find('/')]
+        labels.append(LABEL7[neuron_type])
 
     datas = np.array(datas)
     labels = np.array(labels)
@@ -232,6 +231,8 @@ def GenerateMorphometricsAddMorphoGNNDatabase(mmDatabase,morphognnDatabase,propo
               label=labels[0:math.ceil(proportion * labels.shape[0])])
     WriteH5py(dir=r'./Morph+MorphoGNNTestDatasets.h5', data=datas[math.ceil(proportion * datas.shape[0]):-1],
               label=labels[math.ceil(proportion * labels.shape[0]):-1])
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='generate morphometric dataset')
     parser.add_argument('--swc_dir', type=str, default='./neuron7', help='file path of .swc files')

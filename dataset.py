@@ -1,9 +1,9 @@
-import os
-from SWC2H5PY import ReadH5py
+import logging
+
 import torch.utils.data as data
-import numpy as np
-import h5py
-import logging  # 引入logging模块
+
+from SWC2H5PY import ReadH5py
+
 logging.basicConfig(level = logging.INFO,format = '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
 class DataSet(data.Dataset):
@@ -24,8 +24,6 @@ class DataSet(data.Dataset):
 
     def __len__(self):
         return self.label.shape[0]
-
-
 
 
 if __name__ == '__main__':
