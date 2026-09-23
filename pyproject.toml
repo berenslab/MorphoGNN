@@ -15,7 +15,9 @@ classifiers = [
     "Programming Language :: Python :: 3",
 ]
 dependencies = [
+    "fastparquet>=2026.5.0",
     "h5py>=3.8",
+    "ipykernel>=7.3.0",
     "matplotlib>=3.5",
     # The morphometrics use NeuroM's pre-3.0 API (`load_neuron`, and feature names
     # such as `n_sections` / `n_segments` / `neurite_lengths`). NeuroM 3 renamed the

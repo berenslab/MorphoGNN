@@ -7,7 +7,7 @@
 #       format_version: '1.3'
 #       jupytext_version: 1.19.4
 #   kernelspec:
-#     display_name: morphognn
+#     display_name: MorphoGNN
 #     language: python
 #     name: morphognn
 # ---
@@ -184,7 +184,7 @@ points_by_cell = {}
 rows = []
 qc_failures = Counter()
 
-for cell_id, swc_path in tqdm(sorted(swc_files.items())):
+for cell_id, swc_path in tqdm(sorted(swc_files.items())[:500]):
     try:
         points, soma_xyz, info = preprocess_cell(
             swc_path,
