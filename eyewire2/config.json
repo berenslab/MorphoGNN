@@ -1,0 +1,55 @@
+{
+    "paths": {
+        "swc_dir": [
+            "/gpfs01/berens/data/data/Eyewire2/morphologies-ew2/skel_final/ad494f8b7ec74a8c93bc1e81af36499a/197572403d25843e47aacdafefbf1fed",
+            "C:/Users/joesterle/github/eyewire2/data/morphologies-ew2/skel_final/ad494f8b7ec74a8c93bc1e81af36499a/197572403d25843e47aacdafefbf1fed"
+        ],
+        "dataframe": [
+            "/gpfs01/berens/data/data/Eyewire2/huggingface/eyewire2-data/data-em/dataframes/df_all_neurons_2026-09-16-15h.parquet",
+            "C:/Users/joesterle/github/eyewire2/huggingface/eyewire2-data/data-em/dataframes/df_all_neurons_2026-09-16-15h.parquet"
+        ]
+    },
+    "data": {
+        "n_points": 2048,
+        "min_nodes": 1000,
+        "min_cells_per_class": 20,
+        "cellclass": "RGC",
+        "label_column": "celltype_final",
+        "val_fraction": 0.15,
+        "test_fraction": 0.15,
+        "seed": 0,
+        "normalize": {
+            "mode": "retina",
+            "xy_scale": 300.0,
+            "z_offset": 25.0,
+            "z_scale": 300.0
+        },
+        "augment": {
+            "rotate_xy": true,
+            "mirror_xy": true,
+            "scale_xy": 0.05,
+            "jitter": [1.0, 1.0, 0.4],
+            "translate": [10.0, 10.0, 0.0]
+        }
+    },
+    "training": {
+        "sampler": "pk",
+        "classes_per_batch": 4,
+        "samples_per_class": 2,
+        "batch_size": 8,
+        "num_workers": 2,
+        "epochs": 100,
+        "lr": 0.001,
+        "weight_decay": 0.0001,
+        "step_size": 20,
+        "gamma": 0.5,
+        "min_lr": 1e-05,
+        "triplet_weight": 1.0,
+        "triplet_margin": 0.5,
+        "ckpt_dir": "./ckpts"
+    },
+    "evaluation": {
+        "knn_k": 5,
+        "retrieval_k": 10
+    }
+}

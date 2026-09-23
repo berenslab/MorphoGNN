@@ -28,6 +28,14 @@ dependencies = [
     "tqdm>=4.60",
 ]
 
+# Only the eyewire2 pipeline (eyewire2/, see its 00_dataset_spec.md) needs these:
+# it selects cells from a parquet dataframe rather than from directory names.
+[project.optional-dependencies]
+eyewire2 = [
+    "pandas>=2.0",
+    "pyarrow>=12",
+]
+
 [project.urls]
 Homepage = "https://github.com/sfwmusi/MorphoGNN_reconcls"
 

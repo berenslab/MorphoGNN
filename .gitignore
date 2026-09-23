@@ -19,3 +19,7 @@ venv/
 # OS
 .DS_Store
 Thumbs.db
+
+# eyewire2 pipeline artifacts (see eyewire2/00_dataset_spec.md)
+/eyewire2/data/
+/eyewire2/ckpts/

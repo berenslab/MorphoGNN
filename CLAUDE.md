@@ -6,10 +6,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 MorphoGNN: a DGCNN-style (EdgeConv) point-cloud graph network that classifies and retrieves single neuron morphologies read from `.swc` files. Vendored third-party research code (upstream author `fun0515`, Apache-2.0) — the git history is upstream's, not this workspace's. A companion repo for reconstruction-quality classification is linked at the bottom of the README.
 
-Two parallel tracks live here, sharing the same data layout and label maps:
+Two parallel tracks live at the repo root, sharing the same data layout and label maps:
 
 - **The GNN track** — `SWC2H5PY.py` (data) → `MorphoGNN.py` (train) → `retrieval.py` (embed + query).
 - **The morphometrics baseline** — `morphometrics.py`, which classifies the same neurons from 16 classical NeuroM measurements with a small MLP, to compare against the learned embedding.
+
+A third track, **[eyewire2/](eyewire2/)**, applies the same model to eyewire2 retinal ganglion cells. It shares nothing with the root pipeline but the model and the loss: labels come from a parquet dataframe rather than directory names, and every part of the root data path described below (`LABEL7`, `ReadSWC`'s padding, `GenerateH5py`'s reshape, `Normalization`'s per-axis scaling) is *wrong* for that dataset in a way that fails silently. Read [eyewire2/00_dataset_spec.md](eyewire2/00_dataset_spec.md) before changing anything under `eyewire2/`; it is self-contained, states which upstream behaviors it deliberately replaces, and keeps its open questions in its §7 (nothing there has been run on the full cluster dataset yet). Its artifacts (`eyewire2/data/`, `eyewire2/ckpts/`) are gitignored, and it is the only thing that needs the `eyewire2` extra (`uv sync --extra eyewire2`, for pandas + pyarrow).
 
 ## Environment & packaging
 
@@ -32,7 +34,7 @@ uv run python morphometrics.py --swc_dir=./neuron7  # builds its own .h5 pair, t
 
 Every script reads and writes relative to the **current working directory**, not the repo root, and the paths (`./TrainDatasets_6000.h5`, `./database.npy`, `./MorphoGNN.t7`) are hardcoded rather than flags. Run from wherever the artifacts should land. All generated `.h5`/`.npy`/`.t7` are gitignored.
 
-`MorphoGNN.py` and `morphometrics.py` each have a training loop as a near-duplicate `__main__`/`train()` — same optimizer, `StepLR`, LR floor of 1e-5, and "save on `test_acc >= best`" logic. Changes to one usually belong in both.
+`MorphoGNN.py` and `morphometrics.py` each have a training loop as a near-duplicate `__main__`/`train()` — same optimizer, `StepLR`, LR floor of 1e-5, and "save on `test_acc >= best`" logic. Changes to one usually belong in both — and in the third copy, [eyewire2/03_train_morphognn.py](eyewire2/03_train_morphognn.py), which shares the optimizer/schedule/LR-floor part but deliberately differs in sampler, split and save condition.
 
 ## Data layout contract
 
